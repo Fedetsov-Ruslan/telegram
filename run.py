@@ -13,11 +13,12 @@ load_dotenv()
 bot = Bot(token=os.getenv("TG_TOKEN"))
 dp = Dispatcher(storage=MemoryStorage())
 dp.include_router(user_private_router)
+ngrok_url = str(os.getenv("NGROK_URL"))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    webhook_url = 'https://091e-37-128-205-168.ngrok-free.app/webhook'
-    await bot.set_webhook(webhook_url)
+    webhook_url = f'{ngrok_url}/webhook'
+    await bot.set_webhook(webhook_url, allowed_updates=["message", "callback_query"])
     yield
     await bot.delete_webhook()
 
@@ -29,7 +30,10 @@ async def webhook(request: Request):
         json_data = await request.json()
         logging.info(f"Received data: {json_data}")
         update = Update.model_validate(json_data, context={"bot": bot})
-        await dp.feed_update(bot, update)
+        if update.callback_query:
+            await dp.feed_update(bot, update)
+        else:
+            await dp.feed_update(bot, update)
         return {"status": "ok"}
     except Exception as e:
         logging.error(f"Error processing update: {e}")
